@@ -5,7 +5,6 @@
 import { useCurrentAccount } from '@mysten/dapp-kit';
 
 import { Loading } from '../components/Base/Loading';
-import { WalletNotConnected } from '../components/Base/WalletNotConnected';
 import { KioskCreation } from '../components/Kiosk/KioskCreation';
 import { KioskData } from '../components/Kiosk/KioskData';
 import { KioskSelector } from '../components/Kiosk/KioskSelector';
@@ -23,7 +22,6 @@ import {Ed25519Keypair} from "@mysten/sui.js/keypairs/ed25519";
 import {TransactionBlock} from '@mysten/sui.js/transactions';
 import {toast} from "react-hot-toast";
 import { ZkLoginSignatureInputs} from "@mysten/sui.js/dist/cjs/zklogin/bcs";
-// import { ZkLoginInputs } from "@mysten/sui.js/client";
 import {SerializedSignature} from "@mysten/sui.js/cryptography";
 
 function Page() {
@@ -40,7 +38,6 @@ function Page() {
 	// const { selected, setSelected, showKioskSelector } = useKioskSelector(currentAccount?.address);
 	const { selected, setSelected, showKioskSelector } = useKioskSelector("address");
 
-
   const [error, setError] = useState<string | null>(null);
   const [transactionInProgress, setTransactionInProgress] = useState<boolean>(false);
 
@@ -54,8 +51,6 @@ function Page() {
   const [txDigest, setTxDigest] = useState<string | null>(null);
 
   const {suiClient} = useSui();
-
-  const MINIMUM_BALANCE = 0.003;
 
   async function getSalt(subject: string, jwtEncoded: string) {
     const getSaltRequest: GetSaltRequest = {
@@ -84,66 +79,6 @@ function Page() {
     setTransactionInProgress(false);
   }
 
-  function enoughBalance(userBalance: number) {
-    return userBalance > MINIMUM_BALANCE;
-}
-
-  async function checkIfAddressHasBalance(address: string): Promise<boolean> {
-    console.log("Checking whether address " + address + " has balance...");
-    const coins = await suiClient.getCoins({
-        owner: address,
-    });
-    //loop over coins
-    let totalBalance = 0;
-    for (const coin of coins.data) {
-        totalBalance += parseInt(coin.balance);
-    }
-    totalBalance = totalBalance / 1000000000;  //Converting MIST to SUI
-    setUserBalance(totalBalance);
-    console.log("total balance = ", totalBalance);
-    return enoughBalance(totalBalance);
-  }
-
-  function getTestnetAdminSecretKey() {
-    return process.env.NEXT_PUBLIC_ADMIN_SECRET_KEY;
-  }
-
-  async function giveSomeTestCoins(address: string) {
-    setError(null);
-    console.log("Giving some test coins to address " + address);
-    setTransactionInProgress(true);
-    const adminPrivateKey = getTestnetAdminSecretKey();
-    if (!adminPrivateKey) {
-        createRuntimeError("Admin Secret Key not found. Please set NEXT_PUBLIC_ADMIN_SECRET_KEY environment variable.");
-        return
-    }
-    let adminPrivateKeyArray = Uint8Array.from(Array.from(fromB64(adminPrivateKey)));
-    // const {userKeyData, ephemeralKeyPair} = getEphemeralKeyPair();
-    const adminKeypair = Ed25519Keypair.fromSecretKey(adminPrivateKeyArray.slice(1));
-    // const adminKeypair = ephemeralKeyPair;
-    const tx = new TransactionBlock();
-    const giftCoin = tx.splitCoins(tx.gas, [tx.pure(30000)]);
-
-    tx.transferObjects([giftCoin], tx.pure(address));
-
-    const res = await suiClient.signAndExecuteTransactionBlock({
-        transactionBlock: tx,
-        signer: adminKeypair,
-        requestType: "WaitForLocalExecution",
-        options: {
-            showEffects: true,
-        },
-    });
-    const status = res?.effects?.status?.status;
-    if (status === "success") {
-        console.log("Gift Coin transfer executed! status = ", status);
-        checkIfAddressHasBalance(address);
-        setTransactionInProgress(false);
-    }
-    if (status == "failure") {
-        createRuntimeError("Gift Coin transfer Failed. Error = " + res?.effects);
-    }
-  }
 
   async function loadRequiredData(encodedJwt: string) {
     //Decoding JWT to get useful Info
@@ -162,11 +97,6 @@ function Page() {
 
     setUserAddress(address);
     setUserSalt(userSalt!);
-    const hasEnoughBalance = await checkIfAddressHasBalance(address);
-    if(!hasEnoughBalance){
-        await giveSomeTestCoins(address);
-        toast.success("We' ve fetched some coins for you, so you can get started with Sui !", {   duration: 8000,} );
-    }
 
     console.log("All required data loaded. ZK Address =", address);
   }
@@ -346,7 +276,7 @@ function Page() {
 	// kiosk management screen.
 	return (
 		<div className=''>
-			{jwtEncoded && zkProof 
+			{userAddress && userSalt && jwtEncoded && zkProof
 			&& (
 				<div className="ml-10 container">
 					{showKioskSelector && selected && (

@@ -1,27 +1,18 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { toast } from 'react-hot-toast';
 
-import { useCreateKioskMutation } from '../../mutations/kiosk';
 import { Button } from '../Base/Button';
 import {useSui} from "@/app/hooks/useSui";
 import {GetSaltRequest, LoginResponse, UserKeyData, ZKPPayload, ZKPRequest} from "@/app/types/UsefulTypes";
-import axios from "axios";
-import {useEffect, useLayoutEffect, useState} from "react";
+import {useState} from "react";
 import jwt_decode from "jwt-decode";
 import {genAddressSeed, getZkLoginSignature, jwtToAddress} from '@mysten/zklogin';
 import {fromB64} from "@mysten/bcs";
-import {toBigIntBE} from "bigint-buffer";
 import {Ed25519Keypair} from "@mysten/sui.js/keypairs/ed25519";
 import {TransactionBlock} from '@mysten/sui.js/transactions';
 import { ZkLoginSignatureInputs} from "@mysten/sui.js/dist/cjs/zklogin/bcs";
-// import { ZkLoginInputs } from "@mysten/sui.js/client";
 import {SerializedSignature} from "@mysten/sui.js/cryptography";
-import { useKioskClient } from '../../context/KioskClientContext';
-import { Kiosk, KioskTransaction } from '@mysten/kiosk';
-import { Transaction } from '@mysten/sui/transactions';
-import { useTransactionExecution } from '../../hooks/useTransactionExecution';
 
 export function KioskCreation({userAddress, userSalt, jwtEncoded, zkProof }: { userAddress: string, userSalt: string, jwtEncoded: string, zkProof: ZkLoginSignatureInputs }) {
   const [error, setError] = useState<string | null>(null);
@@ -29,13 +20,6 @@ export function KioskCreation({userAddress, userSalt, jwtEncoded, zkProof }: { u
   const [txDigest, setTxDigest] = useState<string | null>(null);
 
 	const {suiClient} = useSui();
-
-	// const createKiosk = useCreateKioskMutation({
-	// 	onSuccess: () => {
-	// 		onCreate();
-	// 		toast.success('Kiosk created successfully');
-	// 	},
-	// });
 
 	function createRuntimeError(message: string) {
     setError(message);
