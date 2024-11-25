@@ -48,7 +48,8 @@ export default function Home() {
   function getRedirectUri() {
     const protocol = window.location.protocol;
     const host = window.location.host;
-    const customRedirectUri = protocol + "//" + host + "/auth";
+    // const customRedirectUri = protocol + "//" + host + "/auth";
+    const customRedirectUri = protocol + "//" + host + "/kiosk";
     console.log("customRedirectUri = " + customRedirectUri);
     return customRedirectUri;
 }
