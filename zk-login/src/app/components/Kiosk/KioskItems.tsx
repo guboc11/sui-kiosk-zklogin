@@ -16,8 +16,8 @@ import { KioskItem as KioskItemCmp } from './KioskItem';
 import { KioskNotFound } from './KioskNotFound';
 
 export function KioskItems({ kioskId }: { kioskId?: string }) {
-	const location = useLocation();
-	const isKioskPage = location.pathname.startsWith('/kiosk/');
+	// const location = useLocation();
+	// const isKioskPage = location.pathname.startsWith('/kiosk/');
 	const currentAccount = useCurrentAccount();
 
 	const { data: walletKiosk } = useOwnedKiosk(currentAccount?.address);
@@ -35,21 +35,21 @@ export function KioskItems({ kioskId }: { kioskId?: string }) {
 
 	const { data: kioskData, isPending, isError, refetch: getKioskData } = useKiosk(kioskId);
 
-	const navigate = useNavigate();
+	// const navigate = useNavigate();
 
-	useEffect(() => {
-		if (!isError) return;
-		toast.error(
-			'The requested kiosk was not found. You either supplied a wrong kiosk Id or the RPC call failed.',
-		);
-	}, [navigate, isError]);
+	// useEffect(() => {
+	// 	if (!isError) return;
+	// 	toast.error(
+	// 		'The requested kiosk was not found. You either supplied a wrong kiosk Id or the RPC call failed.',
+	// 	);
+	// }, [navigate, isError]);
 
 	const kioskItems = kioskData?.items || [];
 	const kioskListings = kioskData?.listings || {};
 
 	if (!kioskId) return <div className="py-12">Supply a kiosk ID to continue.</div>;
 
-	if (isError && isKioskPage) return <KioskNotFound />;
+	// if (isError && isKioskPage) return <KioskNotFound />;
 
 	if (isPending) return <Loading />;
 
@@ -60,7 +60,8 @@ export function KioskItems({ kioskId }: { kioskId?: string }) {
 		<div className="mt-12">
 			{
 				// We're hiding this when we've clicked "view kiosk" for our own kiosk.
-				isOwnedKiosk() && isKioskPage && (
+				// isOwnedKiosk() && isKioskPage && (
+				isOwnedKiosk() && (
 					<div className="bg-yellow-300 text-black rounded px-3 py-2 mb-6">
 						You're viewing your own kiosk
 					</div>

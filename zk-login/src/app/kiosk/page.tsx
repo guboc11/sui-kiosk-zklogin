@@ -3,12 +3,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCurrentAccount } from '@mysten/dapp-kit';
+import { KioskOwnerCap} from '@mysten/kiosk';
 
 import { Loading } from '../components/Base/Loading';
 import { KioskCreation } from '../components/Kiosk/KioskCreation';
 import { KioskData } from '../components/Kiosk/KioskData';
 import { KioskSelector } from '../components/Kiosk/KioskSelector';
-import { useOwnedKiosk } from '../hooks/kiosk';
+import { useOwnedKiosk, } from '../hooks/kiosk';
 import { useKioskSelector } from '../hooks/useKioskSelector';
 import {useSui} from "@/app/hooks/useSui";
 import {GetSaltRequest, LoginResponse, UserKeyData, ZKPPayload, ZKPRequest} from "@/app/types/UsefulTypes";
@@ -23,34 +24,47 @@ import {TransactionBlock} from '@mysten/sui.js/transactions';
 import {toast} from "react-hot-toast";
 import { ZkLoginSignatureInputs} from "@mysten/sui.js/dist/cjs/zklogin/bcs";
 import {SerializedSignature} from "@mysten/sui.js/cryptography";
+import { useKioskClient } from '../context/KioskClientContext';
 
 function Page() {
-	const currentAccount = useCurrentAccount();
+	// const currentAccount = useCurrentAccount();
 
-	const {
-		data: ownedKiosk,
-		isPending,
-		refetch: refetchOwnedKiosk,
-	} = useOwnedKiosk(currentAccount?.address);
-	// } = useOwnedKiosk("address");
 
 
 	// const { selected, setSelected, showKioskSelector } = useKioskSelector(currentAccount?.address);
-	const { selected, setSelected, showKioskSelector } = useKioskSelector("address");
 
   const [error, setError] = useState<string | null>(null);
   const [transactionInProgress, setTransactionInProgress] = useState<boolean>(false);
 
   const [subjectID, setSubjectID] = useState<string | null>(null);
   const [userSalt, setUserSalt] = useState<string | null>(null);
-  const [userAddress, setUserAddress] = useState<string | null>(null);
+  const [userAddress, setUserAddress] = useState<string | undefined>(undefined);
   const [userBalance, setUserBalance] = useState<number>(0);
   const [jwtEncoded, setJwtEncoded] = useState<string | null>(null);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [zkProof, setZkProof] = useState<ZkLoginSignatureInputs | null>(null);
   const [txDigest, setTxDigest] = useState<string | null>(null);
+	const [kioskOwnerCaps, setKioskOwnerCaps] = useState<KioskOwnerCap[] | null>(null);
+	const [kioskId, setKioskId] = useState<string | null>(null);
+
+	const { selected, setSelected, showKioskSelector } = useKioskSelector(userAddress);
+	const kioskClient = useKioskClient();
+
+	useEffect(() => {
+		const fetchData = async () => {
+			if (userAddress) {
+				const { kioskOwnerCaps, kioskIds } = await kioskClient.getOwnedKiosks({ address: userAddress });
+				setKioskOwnerCaps(kioskOwnerCaps)
+				setKioskId(kioskIds[0])
+			}
+		}
+
+		fetchData();
+
+	}, [userAddress]);
 
   const {suiClient} = useSui();
+
 
   async function getSalt(subject: string, jwtEncoded: string) {
     const getSaltRequest: GetSaltRequest = {
@@ -265,12 +279,12 @@ function Page() {
   }
 
 	// Return loading state.
-	if (isPending) return <Loading />;
+	// if (isPending) return <Loading />;
 
 	// if the account doesn't have a kiosk.
-	if (!ownedKiosk?.kioskId) {
+	if (!kioskId) {
 		if (userAddress && userSalt && jwtEncoded && zkProof) return <KioskCreation userAddress={userAddress} userSalt={userSalt} jwtEncoded={jwtEncoded} zkProof={zkProof}  />;
-		else return <div>zkp loading</div>
+		else return <div>loading zkp</div>
 	}
 
 	// kiosk management screen.
@@ -279,13 +293,13 @@ function Page() {
 			{userAddress && userSalt && jwtEncoded && zkProof
 			&& (
 				<div className="ml-10 container">
-					{showKioskSelector && selected && (
+					{showKioskSelector && selected && kioskOwnerCaps && (
 						<div className="px-4">
-							<KioskSelector caps={ownedKiosk.caps} selected={selected} setSelected={setSelected} />
+							<KioskSelector caps={kioskOwnerCaps} selected={selected} setSelected={setSelected} />
 						</div>
 					)}
 					{/* {selected && currentAccount?.address && <KioskData kioskId={selected.kioskId} />} */}
-					{selected && true && <KioskData kioskId={selected.kioskId} />}
+					{selected && true && <KioskData kioskId={kioskId} />}
 				</div>
 			)}
 		</div>
