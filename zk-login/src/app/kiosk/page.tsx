@@ -51,7 +51,6 @@ function Page() {
   const [jwtEncoded, setJwtEncoded] = useState<string | null>(null);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [zkProof, setZkProof] = useState<ZkLoginSignatureInputs | null>(null);
-  // const [zkProof, setZkProof] = useState<ZkLoginInputs | null>(null);
   const [txDigest, setTxDigest] = useState<string | null>(null);
 
   const {suiClient} = useSui();
@@ -338,12 +337,9 @@ function Page() {
 	// Return loading state.
 	if (isPending) return <Loading />;
 
-	// Return wallet not connected state.
-	// if (!currentAccount?.address) return <WalletNotConnected />;
-
 	// if the account doesn't have a kiosk.
 	if (!ownedKiosk?.kioskId) {
-		if (jwtEncoded && zkProof) return <KioskCreation onCreate={refetchOwnedKiosk} />;
+		if (userAddress && userSalt && jwtEncoded && zkProof) return <KioskCreation userAddress={userAddress} userSalt={userSalt} jwtEncoded={jwtEncoded} zkProof={zkProof}  />;
 		else return <div>zkp loading</div>
 	}
 
@@ -353,8 +349,6 @@ function Page() {
 			{jwtEncoded && zkProof 
 			&& (
 				<div className="ml-10 container">
-					<div>jwtEncoded{jwtEncoded}</div>
-					<div>zkProof{zkProof}</div>
 					{showKioskSelector && selected && (
 						<div className="px-4">
 							<KioskSelector caps={ownedKiosk.caps} selected={selected} setSelected={setSelected} />
