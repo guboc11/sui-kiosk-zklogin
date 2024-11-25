@@ -10,8 +10,9 @@ import {toBigIntBE} from "bigint-buffer";
 import {Ed25519Keypair} from "@mysten/sui.js/keypairs/ed25519";
 import {TransactionBlock} from '@mysten/sui.js/transactions';
 import {toast} from "react-hot-toast";
-// import { ZkLoginSignatureInputs} from "@mysten/sui.js/dist/cjs/zklogin/bcs";
-import { ZkLoginInputs } from "@mysten/sui.js/client";
+import { ZkLoginSignatureInputs} from "@mysten/sui.js/dist/cjs/zklogin/bcs";
+// import { ZkLoginInputs } from "@mysten/sui.js/client";
+import {SerializedSignature} from "@mysten/sui.js/cryptography";
 
 export default function Page() {
   const [error, setError] = useState<string | null>(null);
@@ -23,8 +24,9 @@ export default function Page() {
   const [userBalance, setUserBalance] = useState<number>(0);
   const [jwtEncoded, setJwtEncoded] = useState<string | null>(null);
   const [publicKey, setPublicKey] = useState<string | null>(null);
-  // const [zkProof, setZkProof] = useState<ZkLoginSignatureInputs | null>(null);
-  const [zkProof, setZkProof] = useState<ZkLoginInputs | null>(null);
+  const [zkProof, setZkProof] = useState<ZkLoginSignatureInputs | null>(null);
+  // const [zkProof, setZkProof] = useState<ZkLoginInputs | null>(null);
+  const [txDigest, setTxDigest] = useState<string | null>(null);
 
   const {suiClient} = useSui();
 
@@ -91,9 +93,11 @@ export default function Page() {
         return
     }
     let adminPrivateKeyArray = Uint8Array.from(Array.from(fromB64(adminPrivateKey)));
+    // const {userKeyData, ephemeralKeyPair} = getEphemeralKeyPair();
     const adminKeypair = Ed25519Keypair.fromSecretKey(adminPrivateKeyArray.slice(1));
+    // const adminKeypair = ephemeralKeyPair;
     const tx = new TransactionBlock();
-    const giftCoin = tx.splitCoins(tx.gas, [tx.pure(30000000)]);
+    const giftCoin = tx.splitCoins(tx.gas, [tx.pure(30000)]);
 
     tx.transferObjects([giftCoin], tx.pure(address));
 
@@ -197,8 +201,8 @@ export default function Page() {
     }
     console.log("zkp response = ", proofResponse.data.zkp);
 
-    // setZkProof((proofResponse.data.zkp as ZkLoginSignatureInputs));
-    setZkProof((proofResponse.data.zkp as ZkLoginInputs));
+    setZkProof((proofResponse.data.zkp as ZkLoginSignatureInputs));
+    // setZkProof((proofResponse.data.zkp as ZkLoginInputs));
 
     setTransactionInProgress(false);
 }
@@ -222,6 +226,7 @@ export default function Page() {
 
     setJwtEncoded(jwt_token_encoded);
 
+
     loadRequiredData(jwt_token_encoded);
   },[])
 
@@ -231,7 +236,90 @@ export default function Page() {
         console.log("jwtEncoded is defined. Getting ZK Proof...");
         getZkProof();
     }
-}, [jwtEncoded, userSalt]);
+  }, [jwtEncoded, userSalt]);
+
+  useEffect(() => {
+    if (jwtEncoded && zkProof) {
+        executeTransactionWithZKP();
+    }
+  }, [jwtEncoded, zkProof]);
+
+  async function executeTransactionWithZKP() {
+    console.log(1)
+    setError(null);
+    console.log(2)
+    setTransactionInProgress(true);
+    console.log(3, "encodedJwt", jwtEncoded!)
+    const decodedJwt: LoginResponse = jwt_decode(jwtEncoded!) as LoginResponse;
+    console.log(4)
+    const {userKeyData, ephemeralKeyPair} = getEphemeralKeyPair();
+    console.log(5)
+    const partialZkSignature = zkProof!;
+    console.log(6)
+
+    if (!partialZkSignature || !ephemeralKeyPair || !userKeyData) {
+        createRuntimeError("Transaction cannot proceed. Missing critical data.");
+        return;
+    }
+    console.log(7)
+
+    const txb = new TransactionBlock();
+    console.log(8)
+
+    //Just a simple Demo call to create a little NFT weapon :p
+    txb.moveCall({
+        target: `0xf8294cd69d69d867c5a187a60e7095711ba237fad6718ea371bf4fbafbc5bb4b::teotest::create_weapon`,  //demo package published on testnet
+        arguments: [
+            txb.pure("Zero Knowledge Proof Axe 9000"),  // weapon name
+            txb.pure(66),  // weapon damage
+        ],
+    });
+    console.log(9)
+    txb.setSender(userAddress!);
+    console.log(10)
+
+    const signatureWithBytes = await txb.sign({client: suiClient, signer: ephemeralKeyPair});
+    console.log(11)
+
+    console.log("Got SignatureWithBytes = ", signatureWithBytes);
+    console.log("maxEpoch = ", userKeyData.maxEpoch);
+    console.log("userSignature = ", signatureWithBytes.signature);
+
+    const addressSeed = genAddressSeed(BigInt(userSalt!), "sub", decodedJwt.sub, decodedJwt.aud);
+
+    const zkSignature: SerializedSignature = getZkLoginSignature({
+        inputs: {
+            ...partialZkSignature,
+            addressSeed: addressSeed.toString(),
+        },
+        maxEpoch: userKeyData.maxEpoch,
+        userSignature: signatureWithBytes.signature,
+    });
+
+    suiClient.executeTransactionBlock({
+        transactionBlock: signatureWithBytes.bytes,
+        signature: zkSignature,
+        options: {
+            showEffects: true
+        }
+    }).then((response) => {
+        if (response.effects?.status.status == "success") {
+            console.log("Transaction executed! Digest = ", response.digest);
+            setTxDigest(response.digest);
+            setTransactionInProgress(false);
+        } else {
+            console.log("Transaction failed! reason = ", response.effects?.status)
+            setTransactionInProgress(false);
+        }
+    }).catch((error) => {
+        console.log("Error During Tx Execution. Details: ", error);
+        if(error.toString().includes("Signature is not valid")){
+            createRuntimeError("Signature is not valid. Please generate a new one by clicking on 'Get new ZK Proof'");
+        }
+        setTransactionInProgress(false);
+    });
+  }
+
 
   return(<div>
     <div>auth</div>
